@@ -64,7 +64,7 @@ export default class Telegram {
     }
 
     private sendMostPlayed(act: string) {
-        this.bot.action(act, async (ctx) => {
+        /* this.bot.action(act, async (ctx) => {
             if (this.mode && this.name) {
                 try {
                     this.osu = await Osu.GetInstance(this.name, this.mode);
@@ -88,7 +88,7 @@ export default class Telegram {
                 }
             }
 
-        });
+        }); */
     }
 
     private action(act: string) {

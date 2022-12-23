@@ -1,6 +1,7 @@
 import * as dotenv from "dotenv";
 import { v2, auth } from "osu-api-extended";
 import { response as IUserResponse } from "osu-api-extended/dist/api/v2/routes/user/details"
+import { mostplayedGenerator } from "./mostplayed";
 
 import MostPlayed from "./mostplayed";
 
@@ -36,6 +37,7 @@ export class Osu {
     }
 
     public async getMostPlayedBeatmaps(limit: number, offset?: number) {
-        return MostPlayed.Construct(this.userInstance.id, limit, offset);
+        return mostplayedGenerator(limit, this.userInstance.id);
+        /* return MostPlayed.Construct(this.userInstance.id, limit, offset); */
     }
 }
