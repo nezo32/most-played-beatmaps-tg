@@ -18,9 +18,9 @@
     "noUnusedLocals": false,
     "outDir": "./dist",
     "noUnusedParameters": false,
-    "noImplicitAny": false,
-    "noImplicitThis": false,
-    "strictNullChecks": false,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "strictNullChecks": true,
     "skipLibCheck": true,
     "lib": ["esnext"]
   },

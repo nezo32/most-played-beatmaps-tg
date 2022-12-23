@@ -1,16 +1,11 @@
-import * as dotenv from "dotenv";
 import { v2, auth } from "osu-api-extended";
 import { response as IUserResponse } from "osu-api-extended/dist/api/v2/routes/user/details"
-import { mostplayedGenerator } from "./mostplayed";
-
-import MostPlayed from "./mostplayed";
-
-dotenv.config();
+import mostplayedGenerator from "./mostplayed";
 
 export type modes = 'osu' | 'fruits' | 'mania' | 'taiko';
 
 export class Osu {
-    private userInstance: IUserResponse;
+    public userInstance: IUserResponse;
 
     private user: string | number | undefined;
     private mode: modes | undefined;
@@ -18,6 +13,7 @@ export class Osu {
     private async setUserInstanse() {
         if (this.user && this.mode)
             this.userInstance = await v2.user.details(this.user, this.mode);
+
     }
 
     private setUser(name: string | number, mode: modes) {
@@ -30,14 +26,13 @@ export class Osu {
     }
 
     public static async GetInstance(name: string | number, mode: modes) {
-        await auth.login(Number(process.env.CLIENT_ID), process.env.CLIENT_SECRET);
+        await auth.login(Number(process.env.CLIENT_ID!), process.env.CLIENT_SECRET!);
         const instance = new Osu(name, mode);
         await instance.setUserInstanse();
         return instance;
     }
 
-    public async getMostPlayedBeatmaps(limit: number, offset?: number) {
+    public getMostPlayedBeatmaps(limit: number, offset?: number) {
         return mostplayedGenerator(limit, this.userInstance.id);
-        /* return MostPlayed.Construct(this.userInstance.id, limit, offset); */
     }
 }

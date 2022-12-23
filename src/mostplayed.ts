@@ -5,10 +5,10 @@ export default async function* mostplayedGenerator(limit: number, id: number) {
     try {
         while (true) {
             yield await v2.user.beatmaps.most_played(id, { limit, offset: offset.toString() });
-            offset += limit;
+            offset += limit
         }
 
     } catch (error) {
-        console.log(error);
+        return Error("Beatmaps ended");
     }
 }
