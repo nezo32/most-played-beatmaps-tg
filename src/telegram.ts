@@ -1,19 +1,22 @@
 import { Telegraf, Markup } from "telegraf";
 import { message } from "telegraf/filters";
-import { Osu, modes } from "./osu";
+import { modes, Osu } from "./osu";
+import { response } from "osu-api-extended/dist/api/v2/routes/user/beatmaps/most_played";
 
 export interface IPlayer {
     name?: string,
+    id?: number,
     mode?: modes,
 }
 
 export default class Telegram {
     private bot: Telegraf;
-    private osu: Osu;
 
     private userInput: string = '';
 
     private userFromChat: Map<number, IPlayer> = new Map();
+    private generatorFromChat: Map<number, AsyncGenerator<response[], void, unknown> | undefined> = new Map();
+    private playerFromChat: Map<number, Awaited<ReturnType<typeof Osu.GetInstance>>> = new Map();
 
     private startButtons: ReturnType<typeof Markup.inlineKeyboard> = Markup.inlineKeyboard([
         [Markup.button.callback('Set User 👥', 'btn-1'), Markup.button.callback('Set mode 👁‍🗨', 'btn-2'),],
@@ -38,11 +41,12 @@ export default class Telegram {
             const buttons = Markup.keyboard([
                 [Markup.button.callback('Standart', 'mode-1'), Markup.button.callback('Mania', 'mode-2'),],
                 [Markup.button.callback('Taiko', 'mode-3'), Markup.button.callback('CTB', 'mode-4'),],
-            ]).resize().oneTime();
+            ]).resize().oneTime(true).reply_markup;
 
             ctx.reply("Enter osu! mode", {
-                reply_markup: buttons.reply_markup,
+                reply_markup: buttons,
             });
+
             try {
                 this.userInput = 'mode';
                 await ctx.answerCbQuery();
@@ -54,27 +58,30 @@ export default class Telegram {
 
     private sendMostPlayed(act: string) {
         this.bot.action(act, async (ctx) => {
-            let user;
+            let user: IPlayer | undefined;
             if (ctx.chat)
                 user = this.userFromChat.get(ctx.chat.id);
-            if (user?.mode && user?.name) {
+            if (user?.mode && user?.name && ctx.chat) {
                 try {
-                    this.osu = await Osu.GetInstance(user.name, user.mode);
-                    if (Object.hasOwn(this.osu.userInstance, 'error')) {
+                    const instance = await Osu.GetInstance(user.name, user.mode);
+                    this.playerFromChat.set(ctx.chat.id, instance);
+                    if (!instance) return;
+                    if (Object.hasOwn(instance, 'error')) {
                         ctx.reply("Пользователь не найден!", {
                             reply_markup: this.startButtons.reply_markup,
                         });
                         await ctx.answerCbQuery();
                         return;
                     }
-                    const beatmapsGenerator = this.osu.getMostPlayedBeatmaps(10, 0);
-                    const res = await beatmapsGenerator.next();
+                    if (!ctx.chat) return;
+                    const beatmapsGenerator = this.generatorFromChat.get(ctx.chat?.id);
+                    const res = await beatmapsGenerator?.next();
                     console.log(res);
-                    if (res.value && !(res.value instanceof Error)) {
+                    if (res?.value) {
                         for (const [index, el] of res.value.entries()) {
                             try {
                                 await ctx.replyWithPhoto(el.beatmapset.covers.card, {
-                                    caption: index + 1 + "\t" + el.beatmapset.artist + " " + el.beatmapset.title + ": " + el.count
+                                    caption: index + 1 + "\t" + el.beatmapset.artist + " " + el.beatmapset.title + `[${el.beatmap.version}]` + ": " + el.count
                                 });
                             } catch (err) {
                                 await ctx.reply(
@@ -84,7 +91,7 @@ export default class Telegram {
                         }
                     }
                     await ctx.answerCbQuery();
-                    ctx.reply("Продолжаем", {
+                    ctx.reply("Continuing", {
                         reply_markup: this.startButtons.reply_markup,
                     });
                 } catch (err) {
@@ -100,7 +107,6 @@ export default class Telegram {
                     console.log(err);
                 }
             }
-
         });
     }
 
@@ -119,11 +125,14 @@ export default class Telegram {
     }
 
     private onText() {
-        this.bot.on(message('text'), (ctx) => {
+        this.bot.on(message('text'), async (ctx) => {
             let currentUser = this.userFromChat.get(ctx.chat.id);
             if (this.userInput == 'user') {
                 if (currentUser && currentUser.mode) {
                     this.userFromChat.set(ctx.chat.id, { name: ctx.message.text, mode: currentUser.mode });
+
+                    this.generatorFromChat.set(ctx.chat.id, Osu.getMostPlayedBeatmaps((await Osu.GetInstance(ctx.message.text, currentUser.mode)).id, 10));
+
                 } else {
                     this.userFromChat.set(ctx.chat.id, { name: ctx.message.text });
                 }
@@ -144,10 +153,16 @@ export default class Telegram {
                     this.userInput = '';
                     if (currentUser && currentUser.name) {
                         this.userFromChat.set(ctx.chat.id, { name: currentUser.name, mode: mode });
+
+                        this.generatorFromChat.set(ctx.chat.id, Osu.getMostPlayedBeatmaps((await Osu.GetInstance(currentUser.name, mode)).id, 10));
                     } else {
                         this.userFromChat.set(ctx.chat.id, { mode });
                     }
-                    ctx.reply(`Mode ${ctx.message.text} saved`);
+                    ctx.reply(`Mode ${ctx.message.text} saved`, {
+                        reply_markup: {
+                            remove_keyboard: true,
+                        }
+                    });
                 } catch (err) {
                     if (err instanceof Error)
                         ctx.reply(`${err.message}\nTry again!`);

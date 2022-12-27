@@ -5,34 +5,12 @@ import mostplayedGenerator from "./mostplayed";
 export type modes = 'osu' | 'fruits' | 'mania' | 'taiko';
 
 export class Osu {
-    public userInstance: IUserResponse;
-
-    private user: string | number | undefined;
-    private mode: modes | undefined;
-
-    private async setUserInstanse() {
-        if (this.user && this.mode)
-            this.userInstance = await v2.user.details(this.user, this.mode);
-
-    }
-
-    private setUser(name: string | number, mode: modes) {
-        this.user = name;
-        this.mode = mode;
-    }
-
-    protected constructor(name: string | number, mode: modes) {
-        this.setUser(name, mode);
-    }
-
-    public static async GetInstance(name: string | number, mode: modes) {
+    public static async GetInstance(name: string | number, mode: modes): Promise<IUserResponse> {
         await auth.login(Number(process.env.CLIENT_ID!), process.env.CLIENT_SECRET!);
-        const instance = new Osu(name, mode);
-        await instance.setUserInstanse();
-        return instance;
+        return await v2.user.details(name, mode);
     }
 
-    public getMostPlayedBeatmaps(limit: number, offset?: number) {
-        return mostplayedGenerator(limit, this.userInstance.id);
+    public static getMostPlayedBeatmaps(id: number, limit: number = 10) {
+        return mostplayedGenerator(limit, id);
     }
 }
